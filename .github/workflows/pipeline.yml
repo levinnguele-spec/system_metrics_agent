@@ -1,0 +1,52 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Récupération du code
+        uses: actions/checkout@v4
+
+      - name: Installation de Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Installation des dépendances
+        run: pip install -r requirements.txt
+
+      - name: Lancement des tests
+        run: pytest
+
+  security-scan:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Récupération du code
+        uses: actions/checkout@v4
+
+      - name: Scan du code avec Trivy
+        uses: aquasecurity/trivy-action@0.30.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: "1"
+
+      - name: Build de l'image Docker
+        run: docker build -t system-metrics-agent .
+
+      - name: Scan de l'image avec Trivy
+        uses: aquasecurity/trivy-action@0.30.0
+        with:
+          image-ref: system-metrics-agent
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: "1"
